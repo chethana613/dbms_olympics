@@ -1,0 +1,194 @@
+﻿--scp -r "dbms_olympics_project" chetha@linux.cs.pdx.edu:/u/chetha
+
+
+--
+\copy tokyo_olympics.countries(country_name) FROM '/u/chetha/dbms_olympics_project/country.csv' DELIMITER ',' CSV HEADER;
+\copy tokyo_olympics.discipline(disc_name) FROM '/u/chetha/dbms_olympics_project/discipline.csv' DELIMITER ',' CSV HEADER;
+
+
+select * from tokyo_olympics.countries;
+
+
+select * from tokyo_olympics.discipline;
+
+
+--Medals Table
+CREATE TEMPORARY TABLE TempMedals (
+   rank INT,
+   gold INT,
+   silver INT,
+   bronze INT,
+   total INT,
+   rank_by_total INT,
+   country_name VARCHAR(255) NOT NULL
+);
+
+
+
+
+\copy TempMedals(rank, country_name, gold, silver, bronze, total, rank_by_total) FROM '/u/chetha/dbms_olympics_project/medals.csv' DELIMITER ',' CSV HEADER;
+
+
+INSERT INTO tokyo_olympics.Medals (rank, gold, silver, bronze, total, rank_by_total, country_id)
+SELECT t.rank, t.gold, t.silver, t.bronze, t.total, t.rank_by_total, c.country_id
+FROM TempMedals t
+INNER JOIN tokyo_olympics.Countries c ON t.country_name = c.country_name;
+
+
+DROP TABLE TempMedals;
+
+
+
+
+select * from tokyo_olympics.Medals;
+
+
+---Athlets Table
+
+
+CREATE TEMPORARY TABLE TempAthletes (
+   athlete_name VARCHAR(255) NOT NULL,
+   country_name VARCHAR(255) NOT NULL,
+   discipline_name VARCHAR(255) NOT NULL
+);
+
+
+\copy  TempAthletes (athlete_name, country_name, discipline_name)
+FROM '/u/chetha/dbms_olympics_project/athlets.csv'
+DELIMITER ',' CSV HEADER;
+
+
+INSERT INTO tokyo_olympics.Athletes (athlete_name, country_id, disc_id)
+SELECT t.athlete_name, c.country_id, d.disc_id
+FROM TempAthletes t
+INNER JOIN tokyo_olympics.Countries c ON t.country_name = c.country_name
+INNER JOIN tokyo_olympics.Discipline d ON t.discipline_name = d.disc_name;
+
+
+DROP TABLE TempAthletes;
+
+
+select * from tokyo_olympics.Athletes;
+
+
+-- Events table
+
+
+CREATE TEMPORARY TABLE TempEvents (
+   event_name VARCHAR(255) NOT NULL,
+   discipline_name VARCHAR(255) NOT NULL
+);
+
+
+\copy  TempEvents (event_name, discipline_name)
+FROM '/u/chetha/dbms_olympics_project/event.csv'
+DELIMITER ',' CSV HEADER;
+
+
+INSERT INTO tokyo_olympics.Events (event_name, disc_id)
+SELECT te.event_name, d.disc_id
+FROM TempEvents te
+INNER JOIN tokyo_olympics.Discipline d ON te.discipline_name = d.disc_name;
+
+
+-- Optional: Drop temporary table after use
+DROP TABLE TempEvents;
+
+
+select * from tokyo_olympics.Events;
+
+
+---Coach Table
+
+
+CREATE TEMPORARY TABLE TempCoaches (
+   coach_name VARCHAR(255) NOT NULL,
+   country_name VARCHAR(255) NOT NULL,
+   discipline_name VARCHAR(255),
+   event_name VARCHAR(255)
+);
+
+
+
+
+\copy  TempCoaches (coach_name, country_name, discipline_name, event_name)
+FROM '/u/chetha/dbms_olympics_project/coaches.csv'
+DELIMITER ',' CSV HEADER;
+
+
+INSERT INTO tokyo_olympics.Coaches (coach_name, country_id, disc_id, event_id)
+SELECT tc.coach_name, c.country_id, d.disc_id, e.event_id
+FROM TempCoaches tc
+INNER JOIN tokyo_olympics.Countries c ON tc.country_name = c.country_name
+LEFT JOIN tokyo_olympics.Discipline d ON tc.discipline_name = d.disc_name -- Optional: handle missing disciplines
+LEFT JOIN tokyo_olympics.Events e ON tc.event_name = e.event_name; -- Optional: handle missing events
+
+
+-- Optional: Drop temporary table after use
+DROP TABLE TempCoaches;
+
+
+select * from tokyo_olympics.Coaches;
+
+
+
+
+---Entries Table
+
+
+CREATE TEMPORARY TABLE TempEntries (
+   discipline_name VARCHAR(255) NOT NULL,
+   female INT,
+   male INT,
+   total INT
+);
+
+
+\copy  TempEntries (discipline_name, female, male, total)
+FROM '/u/chetha/dbms_olympics_project/entries.csv'
+DELIMITER ',' CSV HEADER;
+
+
+INSERT INTO tokyo_olympics.Entries (disc_id, female_count, male_count, total_count)
+SELECT d.disc_id, te.female, te.male, te.total
+FROM TempEntries te
+INNER JOIN tokyo_olympics.Discipline d ON te.discipline_name = d.disc_name;
+
+
+-- Optional: Drop temporary table after use
+DROP TABLE TempEntries;
+
+
+select * from tokyo_olympics.Entries;
+
+
+----Teams Table
+
+
+CREATE TEMPORARY TABLE TempTeams (
+   country_name VARCHAR(255) NOT NULL,
+   discipline_name VARCHAR(255) NOT NULL,
+   event_name VARCHAR(255) NOT NULL
+);
+
+
+\copy  TempTeams (country_name, discipline_name, event_name)
+FROM '/u/chetha/dbms_olympics_project/teams.csv'
+DELIMITER ',' CSV HEADER;
+
+
+INSERT INTO tokyo_olympics.Teams (country_id, disc_id, event_id)
+SELECT c.country_id, d.disc_id, e.event_id
+FROM TempTeams tt
+INNER JOIN tokyo_olympics.Countries c ON tt.country_name = c.country_name
+INNER JOIN tokyo_olympics.Discipline d ON tt.discipline_name = d.disc_name
+INNER JOIN tokyo_olympics.Events e ON tt.event_name = e.event_name;
+
+
+-- Optional: Drop temporary table after use
+DROP TABLE TempTeams;
+
+
+
+
+select * from tokyo_olympics.Teams;
